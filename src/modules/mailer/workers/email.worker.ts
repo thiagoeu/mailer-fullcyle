@@ -4,6 +4,7 @@ import { EMAIL_QUEUE_NAME, SendEmailJobData } from '../queues/email.queue';
 import { AppDataSource } from '../../../database/data-source';
 import { EmailJob, EmailStatus } from '../../../database/entities/EmailJob';
 import { createMailTransporter, mailConfig } from '../../../config/mail';
+import { emailsTotalCounter, emailSendDurationHistogram } from '../../../shared/metrics';
 
 const transporter = createMailTransporter();
 
@@ -34,6 +35,11 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
       emailRecord.attempts += 1;
       await emailRepository.save(emailRecord);
 
+      // Inicia timer para registrar a latência do envio nas métricas
+      const stopTimer = emailSendDurationHistogram.startTimer({
+        provider: mailConfig.provider,
+      });
+
       try {
         // 3. Executa o disparo via SMTP (Google / Mailpit)
         const info = await transporter.sendMail({
@@ -42,6 +48,12 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
           subject: emailRecord.subject,
           html: emailRecord.body,
         });
+
+        // Para o timer marcando sucesso
+        stopTimer({ success: 'true' });
+
+        // Incrementa métrica de e-mails enviados com sucesso
+        emailsTotalCounter.inc({ status: 'sent', provider: mailConfig.provider });
 
         // 4. Marca como SENT e salva o ID retornado pelo SMTP
         emailRecord.status = EmailStatus.SENT;
@@ -52,6 +64,12 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
 
         console.log(`[Worker] ✅ E-mail ${emailId} enviado com sucesso! Message-ID: ${info.messageId}`);
       } catch (error: any) {
+        // Para o timer marcando falha
+        stopTimer({ success: 'false' });
+
+        // Incrementa métrica de falha
+        emailsTotalCounter.inc({ status: 'failed', provider: mailConfig.provider });
+
         console.error(`[Worker] ❌ Falha no envio do e-mail ${emailId}:`, error.message);
 
         emailRecord.lastError = error.message;
@@ -84,4 +102,3 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
 
   return worker;
 }
-

@@ -2,6 +2,8 @@ import { AppDataSource } from '../../../database/data-source';
 import { EmailJob, EmailStatus } from '../../../database/entities/EmailJob';
 import { SendEmailInput } from '../dtos/send-email.dto';
 import { addEmailToQueue } from '../queues/email.queue';
+import { emailsTotalCounter } from '../../../shared/metrics';
+import { mailConfig } from '../../../config/mail';
 
 export class EmailService {
   private emailRepository = AppDataSource.getRepository(EmailJob);
@@ -43,6 +45,9 @@ export class EmailService {
     // 3. Adiciona na fila do BullMQ (Redis) para o Worker consumir
     await addEmailToQueue(savedEmail.id);
 
+    // 4. Registra métrica de e-mail enfileirado
+    emailsTotalCounter.inc({ status: 'queued', provider: mailConfig.provider });
+
     return {
       email: savedEmail,
       alreadyExists: false,
@@ -58,4 +63,3 @@ export class EmailService {
     });
   }
 }
-

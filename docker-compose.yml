@@ -1,0 +1,53 @@
+services:
+  # Banco de dados relacional para persistência de jobs, logs e status
+  postgres:
+    image: postgres:16-alpine
+    container_name: mailer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-mailer_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mailer_password}
+      POSTGRES_DB: ${DB_NAME:-mailer_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mailer_user} -d ${DB_NAME:-mailer_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Broker em memória para as filas assíncronas do BullMQ
+  redis:
+    image: redis:7-alpine
+    container_name: mailer-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Servidor SMTP local para testes sem gastar limite do Gmail
+  # Interface Web acessível em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailer-mailpit
+    restart: unless-stopped
+    ports:
+      - "${SMTP_PORT:-1025}:1025" # Porta SMTP para envio
+      - "8025:8025"              # Interface Web para visualização
+    environment:
+      MP_MAX_MESSAGES: 500
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+

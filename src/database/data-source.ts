@@ -1,0 +1,22 @@
+import 'reflect-metadata';
+import 'dotenv/config';
+import { DataSource } from 'typeorm';
+import { EmailJob } from './entities/EmailJob';
+
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 5432,
+  username: process.env.DB_USER || 'mailer_user',
+  password: process.env.DB_PASSWORD || 'mailer_password',
+  database: process.env.DB_NAME || 'mailer_db',
+  
+  // Em desenvolvimento, o synchronize sincroniza automaticamente as tabelas
+  // No fluxo Full Cycle de produção, usamos migrations
+  synchronize: process.env.NODE_ENV === 'development',
+  logging: process.env.NODE_ENV === 'development',
+  entities: [EmailJob],
+  migrations: [__dirname + '/migrations/*.{ts,js}'],
+  subscribers: []
+});
+

@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'mailer-api'
+    metrics_path: '/metrics'
+    static_configs:
+      # host.docker.internal permite ao container acessar a API rodando no host (porta 3333)
+      - targets: ['host.docker.internal:3333']
+

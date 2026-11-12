@@ -14,6 +14,7 @@ async function testApi() {
   await app.ready();
 
   const targetEmail = process.env.GOOGLE_ACCOUNT_USER || 'contatochecker@gmail.com';
+  const apiKey = process.env.API_SECRET_KEY || 'default_secret_key';
 
   // 1. Teste de Healthcheck
   console.log('--- 1. Testando GET /health ---');
@@ -29,6 +30,9 @@ async function testApi() {
   const invalidRes = await app.inject({
     method: 'POST',
     url: '/emails/send',
+    headers: {
+      'x-api-key': apiKey,
+    },
     payload: {
       to: 'email-invalido-sem-arroba',
       subject: '',
@@ -46,6 +50,7 @@ async function testApi() {
     method: 'POST',
     url: '/emails/send',
     headers: {
+      'x-api-key': apiKey,
       'idempotency-key': idempotencyKey,
     },
     payload: {
@@ -65,6 +70,7 @@ async function testApi() {
     method: 'POST',
     url: '/emails/send',
     headers: {
+      'x-api-key': apiKey,
       'idempotency-key': idempotencyKey,
     },
     payload: {
@@ -85,6 +91,9 @@ async function testApi() {
   const getRes = await app.inject({
     method: 'GET',
     url: `/emails/${createdEmailId}`,
+    headers: {
+      'x-api-key': apiKey,
+    },
   });
   console.log('Status:', getRes.statusCode);
   console.log('Registro atualizado no banco:', getRes.json());

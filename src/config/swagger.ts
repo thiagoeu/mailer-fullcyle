@@ -18,8 +18,25 @@ export const swaggerOptions: FastifyDynamicSwaggerOptions = {
     ],
     tags: [
       { name: SwaggerConstants.TAG_EMAILS, description: SwaggerConstants.TAG_EMAILS_DESCRIPTION },
+      { name: 'API Keys', description: 'Gerenciamento de chaves de autenticacao com hashing SHA-256' },
       { name: SwaggerConstants.TAG_MONITORING, description: SwaggerConstants.TAG_MONITORING_DESCRIPTION },
     ],
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: 'apiKey',
+          name: 'x-api-key',
+          in: 'header',
+          description: 'Chave secreta de autenticacao para consumo das rotas /emails (padrao: default_secret_key)',
+        },
+        AdminKeyAuth: {
+          type: 'apiKey',
+          name: 'x-admin-key',
+          in: 'header',
+          description: 'Chave mestre administrativa para gerenciamento de API Keys (padrao: master_admin_secret)',
+        },
+      },
+    },
   },
   transform: jsonSchemaTransform,
 };

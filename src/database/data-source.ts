@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
 import { EmailJob } from './entities/EmailJob';
+import { ApiKey } from './entities/ApiKey';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -16,7 +17,7 @@ export const AppDataSource = new DataSource({
   synchronize: process.env.NODE_ENV === 'development',
   // Loga apenas erros de SQL para nao poluir o terminal com queries internas de schema
   logging: ['error'],
-  entities: [EmailJob],
+  entities: [EmailJob, ApiKey],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   subscribers: []
 });

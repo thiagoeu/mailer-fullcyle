@@ -8,6 +8,8 @@ import {
   ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { emailRoutes } from './modules/mailer/routes/email.routes';
+import { monitoringRoutes } from './modules/monitoring/monitoring.routes';
+import { apiKeyRoutes } from './modules/api-keys/routes/api-key.routes';
 import { AppDataSource } from './database/data-source';
 import { emailQueue } from './modules/mailer/queues/email.queue';
 import { metricsRegistry, httpRequestDurationHistogram } from './shared/metrics';
@@ -81,72 +83,11 @@ export function buildApp(): FastifyInstance {
     done();
   });
 
-  // Healthcheck completo documentado
-  app.withTypeProvider<ZodTypeProvider>().get(
-    '/health',
-    {
-      schema: {
-        tags: [SwaggerConstants.TAG_MONITORING],
-        summary: 'Verifica a saude da API e das conexoes com banco e fila',
-        response: {
-          [HttpStatus.OK]: z.object({
-            status: z.enum(['UP', 'DOWN']),
-            timestamp: z.string(),
-            services: z.object({
-              database: z.enum(['UP', 'DOWN']),
-              redis: z.enum(['UP', 'DOWN']),
-            }),
-          }),
-          [HttpStatus.SERVICE_UNAVAILABLE]: z.object({
-            status: z.enum(['UP', 'DOWN']),
-            timestamp: z.string(),
-            services: z.object({
-              database: z.enum(['UP', 'DOWN']),
-              redis: z.enum(['UP', 'DOWN']),
-            }),
-          }),
-        },
-      },
-    },
-    async (_req, reply) => {
-      const isDbConnected = AppDataSource.isInitialized;
-      let isRedisConnected = false;
+  // Registro das rotas de observabilidade (/health e /metrics)
+  app.register(monitoringRoutes);
 
-      try {
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Redis healthcheck timeout')), 1000)
-        );
-        const checkRedis = async () => {
-          const client = await emailQueue.client;
-          if (client.status === 'ready') {
-            const pong = await (client as any).ping();
-            return pong === 'PONG';
-          }
-          return false;
-        };
-        isRedisConnected = await Promise.race([checkRedis(), timeoutPromise]);
-      } catch {
-        isRedisConnected = false;
-      }
-
-      const healthy = isDbConnected && isRedisConnected;
-
-      return reply.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE).send({
-        status: healthy ? 'UP' : 'DOWN',
-        timestamp: new Date().toISOString(),
-        services: {
-          database: isDbConnected ? 'UP' : 'DOWN',
-          redis: isRedisConnected ? 'UP' : 'DOWN',
-        },
-      });
-    }
-  );
-
-  // Endpoint de Metricas do Prometheus
-  app.get('/metrics', { logLevel: 'silent' }, async (_req, reply) => {
-    reply.header('Content-Type', metricsRegistry.contentType);
-    return reply.send(await metricsRegistry.metrics());
-  });
+  // Registro das rotas de gerenciamento de API Keys (/api-keys)
+  app.register(apiKeyRoutes, { prefix: '/api-keys' });
 
   // Registro do modulo de e-mails sob o prefixo /emails
   app.register(emailRoutes, { prefix: '/emails' });

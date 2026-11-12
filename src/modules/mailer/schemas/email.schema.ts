@@ -10,7 +10,7 @@ import { MessagesConstants } from '../../../shared/constants/messages.constants'
 export const sendEmailRouteSchema = {
   tags: [SwaggerConstants.TAG_EMAILS],
   summary: 'Enfileira um novo e-mail para processamento assincrono',
-  description: 'Recebe o destinatario, assunto e corpo, garantindo idempotencia caso a chave Idempotency-Key seja fornecida. Responde 202 Accepted imediatamente e processa o envio em background via BullMQ.',
+  description: 'Recebe o destinatario, assunto e corpo (ou template Handlebars), garantindo idempotencia caso a chave Idempotency-Key seja fornecida. Responde 202 Accepted imediatamente e processa o envio em background via BullMQ.',
   headers: z.object({
     [MessagesConstants.HEADER_IDEMPOTENCY_KEY]: z.string().optional().describe('Chave de idempotencia enviada via header'),
   }),
@@ -52,7 +52,8 @@ export const getEmailByIdRouteSchema = {
       statusCode: z.number().default(HttpStatus.NOT_FOUND),
       error: z.string(),
       message: z.string(),
-    }).describe('E-mail nao encontrado'),
+      path: z.string().optional(),
+      timestamp: z.string().optional(),
+    }).describe('E-mail nao localizado na base de dados'),
   },
 };
-

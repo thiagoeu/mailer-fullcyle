@@ -114,7 +114,7 @@ export function buildApp(): FastifyInstance {
 
       try {
         const client = await emailQueue.client;
-        const pong = await client.ping();
+        const pong = await (client as any).ping();
         isRedisConnected = pong === 'PONG';
       } catch {
         isRedisConnected = false;

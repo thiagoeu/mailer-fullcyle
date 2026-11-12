@@ -35,12 +35,24 @@ export const queueJobsGauge = new client.Gauge({
   labelNames: ['state'] as const,
   async collect() {
     try {
-      const counts = await emailQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
-      this.set({ state: 'waiting' }, counts.waiting);
-      this.set({ state: 'active' }, counts.active);
-      this.set({ state: 'completed' }, counts.completed);
-      this.set({ state: 'failed' }, counts.failed);
-      this.set({ state: 'delayed' }, counts.delayed);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Redis metrics timeout')), 1000)
+      );
+      const getCounts = async () => {
+        const client = await emailQueue.client;
+        if (client.status === 'ready') {
+          return await emailQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+        }
+        return null;
+      };
+      const counts = await Promise.race([getCounts(), timeoutPromise]);
+      if (counts) {
+        this.set({ state: 'waiting' }, counts.waiting);
+        this.set({ state: 'active' }, counts.active);
+        this.set({ state: 'completed' }, counts.completed);
+        this.set({ state: 'failed' }, counts.failed);
+        this.set({ state: 'delayed' }, counts.delayed);
+      }
     } catch {
       // Falha silenciosa para não quebrar a coleta se o Redis estiver reiniciando
     }

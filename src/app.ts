@@ -113,9 +113,18 @@ export function buildApp(): FastifyInstance {
       let isRedisConnected = false;
 
       try {
-        const client = await emailQueue.client;
-        const pong = await (client as any).ping();
-        isRedisConnected = pong === 'PONG';
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Redis healthcheck timeout')), 1000)
+        );
+        const checkRedis = async () => {
+          const client = await emailQueue.client;
+          if (client.status === 'ready') {
+            const pong = await (client as any).ping();
+            return pong === 'PONG';
+          }
+          return false;
+        };
+        isRedisConnected = await Promise.race([checkRedis(), timeoutPromise]);
       } catch {
         isRedisConnected = false;
       }

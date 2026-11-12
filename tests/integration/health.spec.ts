@@ -1,5 +1,23 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { FastifyInstance } from 'fastify';
+
+// Mocka a fila do Redis para garantir execucao rapida em memoria sem depender de container externo ativo
+vi.mock('../../src/modules/mailer/queues/email.queue', () => ({
+  emailQueue: {
+    client: Promise.resolve({
+      status: 'ready',
+      ping: vi.fn().mockResolvedValue('PONG'),
+    }),
+    getJobCounts: vi.fn().mockResolvedValue({
+      waiting: 0,
+      active: 0,
+      completed: 0,
+      failed: 0,
+      delayed: 0,
+    }),
+  },
+}));
+
 import { buildApp } from '../../src/app';
 
 describe('Health and Metrics API (Integration - In Memory)', () => {
@@ -38,4 +56,3 @@ describe('Health and Metrics API (Integration - In Memory)', () => {
     expect(response.body).toContain('mailer_emails_total');
   });
 });
-

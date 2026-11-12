@@ -106,15 +106,26 @@ cp .env.example .env
 ```
 Ajuste as configurações no `.env` conforme necessário.
 
-### 4. Subir a infraestrutura (PostgreSQL, Redis e Mailpit)
+### 4. Subir a infraestrutura (PostgreSQL, Redis, Mailpit, Prometheus e Grafana)
 ```bash
 docker compose up -d
 ```
 - **PostgreSQL:** `localhost:5432`
 - **Redis:** `localhost:6379`
-- **Mailpit (Web UI):** Acesse [http://localhost:8025](http://localhost:8025) para ver os e-mails mockados.
+- **Mailpit (Web UI):** [http://localhost:8025](http://localhost:8025)
+- **Prometheus:** [http://localhost:9090](http://localhost:9090)
+- **Grafana (Dashboards):** [http://localhost:3000](http://localhost:3000) (admin / admin)
 
-### 5. Testes rápidos dos componentes
+### 5. Iniciar a API e Worker
+```bash
+npm run dev
+```
+- **API HTTP:** `http://localhost:3333`
+- **Documentacao Swagger UI:** [http://localhost:3333/docs](http://localhost:3333/docs)
+- **Healthcheck:** [http://localhost:3333/health](http://localhost:3333/health)
+- **Metricas Prometheus:** [http://localhost:3333/metrics](http://localhost:3333/metrics)
+
+### 6. Testes rapidos dos componentes
 ```bash
 # 1. Testar conexão com o banco e criação das tabelas
 npx tsx src/scripts/test-db.ts

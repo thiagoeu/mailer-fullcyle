@@ -24,6 +24,7 @@ async function bootstrap() {
   await app.listen({ port, host });
   console.log(`[INFO] API HTTP rodando em http://localhost:${port}`);
   console.log(`[INFO] Healthcheck disponivel em http://localhost:${port}/health`);
+  console.log(`[INFO] Documentacao Swagger UI disponivel em http://localhost:${port}/docs`);
 
   // 4. Graceful Shutdown (Encerramento gracioso em caso de parada do container/processo)
   const gracefulShutdown = async (signal: string) => {

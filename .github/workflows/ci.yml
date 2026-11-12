@@ -1,0 +1,35 @@
+name: CI — Integracao Continua
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Validacao (Tipos, Testes e Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup do Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalacao Limpa de Dependencias
+        run: npm ci
+
+      - name: Checagem Estrita de Tipos (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Execucao da Suite de Testes (Vitest)
+        run: npm test
+
+      - name: Compilacao de Producao (Build Bundle)
+        run: npm run build
+

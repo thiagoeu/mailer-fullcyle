@@ -1,0 +1,27 @@
+name: Docker — Build & Container Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  docker-build:
+    name: Validacao de Build da Imagem Docker Multi-Stage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup do Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build da Imagem Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: mailer-service:latest
+

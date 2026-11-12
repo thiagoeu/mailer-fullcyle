@@ -31,14 +31,20 @@ export class EmailService {
       }
     }
 
-    // 2. Criacao do registro inicial no PostgreSQL com status PENDING
+    // 2. Prepara os metadados incluindo informacoes de template se houver
+    const metadata = {
+      ...(data.metadata || {}),
+      ...(data.template ? { template: data.template, templateVariables: data.templateVariables || {} } : {}),
+    };
+
+    // 3. Criacao do registro inicial no PostgreSQL com status PENDING
     const newEmail = this.emailRepository.create({
       to: data.to,
       from: data.from,
       subject: data.subject,
-      body: data.body,
+      body: data.body || '', // Sera populado pelo worker se for baseado em template
       idempotencyKey: data.idempotencyKey,
-      metadata: data.metadata,
+      metadata,
       status: EmailStatus.PENDING,
       attempts: 0,
       maxAttempts: QueueConstants.DEFAULT_MAX_ATTEMPTS,
@@ -46,10 +52,10 @@ export class EmailService {
 
     const savedEmail = await this.emailRepository.save(newEmail);
 
-    // 3. Adiciona na fila do BullMQ (Redis) para o Worker consumir
+    // 4. Adiciona na fila do BullMQ (Redis) para o Worker consumir
     await addEmailToQueue(savedEmail.id);
 
-    // 4. Registra metrica de e-mail enfileirado
+    // 5. Registra metrica de e-mail enfileirado
     emailsTotalCounter.inc({ status: 'queued', provider: mailConfig.provider });
 
     return {
@@ -59,8 +65,7 @@ export class EmailService {
   }
 
   /**
-   * Consulta o status atual de um e-mail pelo seu ID.
-   * Lanca NotFoundError caso o registro nao exista no banco de dados.
+   * Busca um e-mail persistido por ID com tratamento centralizado de erro
    */
   async getEmailById(id: string): Promise<EmailJob> {
     const email = await this.emailRepository.findOne({
@@ -68,7 +73,7 @@ export class EmailService {
     });
 
     if (!email) {
-      throw new NotFoundError(`${MessagesConstants.EMAIL_NOT_FOUND} (ID: '${id}')`);
+      throw new NotFoundError(MessagesConstants.EMAIL_NOT_FOUND);
     }
 
     return email;

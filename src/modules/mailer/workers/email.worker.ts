@@ -7,8 +7,10 @@ import { EmailJob } from '../../../database/entities/EmailJob';
 import { EmailStatus } from '../../../shared/enums/email-status.enum';
 import { createMailTransporter, mailConfig } from '../../../config/mail';
 import { emailsTotalCounter, emailSendDurationHistogram } from '../../../shared/metrics';
+import { TemplateService } from '../services/template.service';
 
 const transporter = createMailTransporter();
+const templateService = TemplateService.getInstance();
 
 export function setupEmailWorker(): Worker<SendEmailJobData> {
   const worker = new Worker<SendEmailJobData>(
@@ -43,12 +45,23 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
       });
 
       try {
-        // 3. Executa o disparo via SMTP (Google / Mailpit)
+        // 3. Renderiza o corpo do e-mail (se usar template Handlebars)
+        let htmlBody = emailRecord.body;
+        const templateName = emailRecord.metadata?.template;
+        const templateVariables = emailRecord.metadata?.templateVariables || {};
+
+        if (templateName) {
+          htmlBody = await templateService.render(templateName, templateVariables);
+          // Atualiza o corpo renderizado no registro do banco para fins de auditoria
+          emailRecord.body = htmlBody;
+        }
+
+        // 4. Executa o disparo via SMTP (Google / Mailpit)
         const info = await transporter.sendMail({
           from: emailRecord.from || `"Mailer Service" <${mailConfig.fromDefault}>`,
           to: emailRecord.to,
           subject: emailRecord.subject,
-          html: emailRecord.body,
+          html: htmlBody,
         });
 
         // Para o timer marcando sucesso
@@ -57,7 +70,7 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
         // Incrementa metrica de e-mails enviados com sucesso
         emailsTotalCounter.inc({ status: 'sent', provider: mailConfig.provider });
 
-        // 4. Marca como SENT e salva o ID retornado pelo SMTP
+        // 5. Marca como SENT e salva o ID retornado pelo SMTP
         emailRecord.status = EmailStatus.SENT;
         emailRecord.sentAt = new Date();
         emailRecord.externalMessageId = info.messageId;
@@ -72,34 +85,34 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
         // Incrementa metrica de falha
         emailsTotalCounter.inc({ status: 'failed', provider: mailConfig.provider });
 
-        console.error(`[Worker] [ERROR] Falha no envio do e-mail ${emailId}:`, error.message);
+        emailRecord.lastError = error.message || 'Erro desconhecido durante o disparo.';
 
-        emailRecord.lastError = error.message;
-
-        // Se for a ultima tentativa permitida pelo BullMQ, marca como FAILED definitivamente
-        const maxAttempts = job.opts.attempts || QueueConstants.DEFAULT_MAX_ATTEMPTS;
-        if (emailRecord.attempts >= maxAttempts) {
+        // Se atingiu o limite maximo de tentativas, marca como FAILED definitivo
+        if (emailRecord.attempts >= emailRecord.maxAttempts) {
           emailRecord.status = EmailStatus.FAILED;
+          console.error(
+            `[Worker] [FATAL] E-mail ${emailId} falhou apos atingir ${emailRecord.attempts} tentativas. Erro: ${error.message}`
+          );
+        } else {
+          // Mantem como PENDING para a proxima retentativa com backoff do BullMQ
+          emailRecord.status = EmailStatus.PENDING;
+          console.warn(
+            `[Worker] [WARN] Falha temporaria ao enviar e-mail ${emailId} (Tentativa ${emailRecord.attempts}/${emailRecord.maxAttempts}). Reenfileirando...`
+          );
         }
 
         await emailRepository.save(emailRecord);
-
-        // Relanca o erro para o BullMQ reagendar a retentativa com Backoff
         throw error;
       }
     },
     {
       connection: redisConnection,
-      concurrency: QueueConstants.WORKER_CONCURRENCY,
+      concurrency: 5,
     }
   );
 
-  worker.on('completed', (job) => {
-    console.log(`[Worker Event] [INFO] Job #${job.id} finalizado com sucesso.`);
-  });
-
   worker.on('failed', (job, err) => {
-    console.log(`[Worker Event] [WARN] Job #${job?.id} falhou. Tentativa ${job?.attemptsMade}/${job?.opts.attempts}. Erro: ${err.message}`);
+    console.error(`[Worker] Job #${job?.id} falhou: ${err.message}`);
   });
 
   return worker;

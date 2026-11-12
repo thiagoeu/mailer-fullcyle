@@ -1,0 +1,111 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: MailerServiceAlerts
+    folder: Mailer Alerts
+    interval: 1m
+    rules:
+      - uid: mailer-queue-congestion
+        title: "Fila BullMQ Congestionada (Waiting > 50)"
+        condition: B
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: Prometheus
+            model:
+              editorMode: code
+              expr: sum(mailer_queue_jobs_count{state="waiting"}) or vector(0)
+              instant: true
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 50
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              expression: $A > 50
+              refId: B
+              type: math
+        for: 5m
+        annotations:
+          summary: "Fila de jobs de e-mail congestionada"
+          description: "A fila possui mais de 50 mensagens em espera (waiting) por mais de 5 minutos consecutivos."
+        labels:
+          severity: warning
+          service: mailer-service
+
+      - uid: mailer-smtp-failure
+        title: "Alta Taxa de Falhas no Provedor SMTP"
+        condition: B
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: Prometheus
+            model:
+              editorMode: code
+              expr: sum(rate(mailer_emails_total{status="failed"}[5m])) or vector(0)
+              instant: true
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.05
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              expression: $A > 0.05
+              refId: B
+              type: math
+        for: 2m
+        annotations:
+          summary: "Falhas criticas de envio no provedor SMTP"
+          description: "A taxa de falhas no envio de e-mails ultrapassou o limite operacional de 0.05 falhas por segundo."
+        labels:
+          severity: critical
+          service: mailer-service

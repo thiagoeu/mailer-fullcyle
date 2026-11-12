@@ -4,7 +4,7 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "liveNow": true,
@@ -13,11 +13,11 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "id": 1,
-      "title": "Visao Geral de Processamento",
+      "title": "Metricas de Negocio & Consolidado Persistido (PostgreSQL)",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "postgres", "uid": "Postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -25,12 +25,12 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null }
+              { "color": "blue", "value": null }
             ]
           }
         }
       },
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
       "id": 2,
       "options": {
         "colorMode": "value",
@@ -44,22 +44,22 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "10.4.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "datasource": { "type": "postgres", "uid": "Postgres" },
           "editorMode": "code",
-          "expr": "sum(mailer_emails_total{status=\"sent\"}) or vector(0)",
-          "instant": false,
-          "range": true,
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) as total FROM emails;",
           "refId": "A"
         }
       ],
-      "title": "Total Emails Enviados",
+      "title": "Total Historico (Banco)",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "postgres", "uid": "Postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -67,12 +67,12 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "blue", "value": null }
+              { "color": "green", "value": null }
             ]
           }
         }
       },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
       "id": 3,
       "options": {
         "colorMode": "value",
@@ -86,22 +86,22 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "10.4.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "datasource": { "type": "postgres", "uid": "Postgres" },
           "editorMode": "code",
-          "expr": "sum(mailer_emails_total{status=\"queued\"}) or vector(0)",
-          "instant": false,
-          "range": true,
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) as sent FROM emails WHERE status = 'SENT';",
           "refId": "A"
         }
       ],
-      "title": "Total Emails Enfileirados",
+      "title": "Enviados com Sucesso",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "postgres", "uid": "Postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -115,7 +115,7 @@
           }
         }
       },
-      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
       "id": 4,
       "options": {
         "colorMode": "value",
@@ -129,33 +129,254 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "10.4.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "datasource": { "type": "postgres", "uid": "Postgres" },
           "editorMode": "code",
-          "expr": "sum(mailer_emails_total{status=\"failed\"}) or vector(0)",
-          "instant": false,
-          "range": true,
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) as failed FROM emails WHERE status = 'FAILED';",
           "refId": "A"
         }
       ],
-      "title": "Total Falhas Definitivas",
+      "title": "Falhas Definitivas",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "Postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "Postgres" },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) as pending FROM emails WHERE status IN ('PENDING', 'PROCESSING');",
+          "refId": "A"
+        }
+      ],
+      "title": "Pendentes / Processando",
       "type": "stat"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
-      "id": 5,
-      "title": "Filas e Performance",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 6,
+      "title": "Telemetria Operacional — Metodo RED (Prometheus)",
       "type": "row"
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
-      "id": 6,
-      "title": "Estado da Fila BullMQ (Redis)",
-      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "emails / min",
+            "axisPlacement": "auto",
+            "fillOpacity": 20,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "auto"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "editorMode": "code",
+          "expr": "sum(rate(mailer_emails_total{provider=~\"$provider\"}[1m])) * 60 or vector(0)",
+          "instant": false,
+          "legendFormat": "Vazao Total (emails/min)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "RED: Rate (Vazao por Minuto)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "red", "mode": "fixed" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "erros / s",
+            "axisPlacement": "auto",
+            "fillOpacity": 40,
+            "lineWidth": 2,
+            "showPoints": "auto"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "editorMode": "code",
+          "expr": "sum(rate(mailer_emails_total{status=\"failed\", provider=~\"$provider\"}[1m])) or vector(0)",
+          "instant": false,
+          "legendFormat": "Taxa de Falhas/s",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "RED: Errors (Taxa de Erros por Segundo)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "latencia (s)",
+            "axisPlacement": "auto",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "auto"
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(mailer_send_duration_seconds_bucket{provider=~\"$provider\"}[5m])) by (le)) or vector(0)",
+          "instant": false,
+          "legendFormat": "p95 Latencia",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum(rate(mailer_send_duration_seconds_bucket{provider=~\"$provider\"}[5m])) by (le)) or vector(0)",
+          "instant": false,
+          "legendFormat": "p99 Latencia",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "RED: Duration (Latencia Percentil p95 / p99)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 10,
+      "title": "Filas de Mensageria & Saude dos Provedores",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "jobs",
+            "axisPlacement": "auto",
+            "fillOpacity": 15,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "showPoints": "auto"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "Prometheus" },
@@ -164,14 +385,40 @@
           "legendFormat": "{{state}}",
           "refId": "A"
         }
-      ]
+      ],
+      "title": "Estado da Fila BullMQ (Redis)",
+      "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
-      "id": 7,
-      "title": "Latencia Media de Envio SMTP (Gmail/Mailpit)",
-      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "segundos",
+            "axisPlacement": "auto",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "auto"
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "Prometheus" },
@@ -180,13 +427,97 @@
           "legendFormat": "{{provider}} (media s)",
           "refId": "A"
         }
-      ]
+      ],
+      "title": "Latencia Media por Provedor SMTP",
+      "type": "timeseries"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["mailer", "fullcycle"],
+  "tags": ["mailer", "fullcycle", "observability", "red-method"],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Provedor",
+        "multi": false,
+        "name": "provider",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "mailpit",
+            "value": "mailpit"
+          },
+          {
+            "selected": false,
+            "text": "gmail",
+            "value": "gmail"
+          }
+        ],
+        "query": "mailpit, gmail",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Status",
+        "multi": false,
+        "name": "status",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "SENT",
+            "value": "SENT"
+          },
+          {
+            "selected": false,
+            "text": "FAILED",
+            "value": "FAILED"
+          },
+          {
+            "selected": false,
+            "text": "PENDING",
+            "value": "PENDING"
+          },
+          {
+            "selected": false,
+            "text": "PROCESSING",
+            "value": "PROCESSING"
+          }
+        ],
+        "query": "SENT, FAILED, PENDING, PROCESSING",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
   "time": {
     "from": "now-15m",
     "to": "now"
@@ -195,5 +526,5 @@
   "timezone": "browser",
   "title": "Mailer Service — Overview",
   "uid": "mailer-service-overview",
-  "version": 1
+  "version": 2
 }

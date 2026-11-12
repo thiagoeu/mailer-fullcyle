@@ -129,7 +129,8 @@ flowchart TD
     Consumer -.->|Registra Metricas| PromMetrics
     Routes -.->|Registra Metricas| PromMetrics
     Prometheus -->|Scrape a cada 5s| PromMetrics
-    Grafana -->|Consulta Metricas| Prometheus
+    Grafana -->|Consulta Metricas RED| Prometheus
+    Grafana -->|Consulta Consolidado SQL| Postgres
 ```
 
 ---
@@ -507,18 +508,31 @@ A documentacao interativa e gerada automaticamente a partir dos schemas Zod e es
 
 ## Observabilidade e Metricas
 
+### Arquitetura de Observabilidade Multi-DataSource
+O ecossistema adota o padrao corporativo de observabilidade com segregacao estrita entre estado persistido de negocio e telemetria operacional em tempo real:
+- **PostgreSQL (UID `Postgres`):** Consulta direta a base relacional (`emails`) para cards superiores de consolidados historicos (Total de E-mails, Enviados com Sucesso, Falhas e Pendentes), imune a resets de memoria ou ciclo de vida dos containers.
+- **Prometheus (UID `Prometheus`):** Raspagem a cada 5 segundos no endpoint `/metrics` da aplicacao Node.js para telemetria operacional de alta fidelidade baseada no **Metodo RED**.
+
 ### Metricas Coletadas (`prom-client`)
 - `mailer_emails_total`: Contador total de e-mails processados (labels: `provider`, `status`).
 - `mailer_send_duration_seconds`: Histograma do tempo gasto no disparo SMTP.
 - `mailer_queue_jobs_count`: Gauge com a quantidade atual de jobs em cada estado da fila BullMQ (`waiting`, `active`, `completed`, `failed`, `delayed`).
 - `http_request_duration_seconds`: Histograma de latencia das requisicoes HTTP (labels: `method`, `route`, `status_code`).
 
-### Painel Grafana
-O Grafana ja vem com o datasource Prometheus provisionado e o dashboard **Mailer Service Overview** configurado automaticamente:
+### Painel Grafana & Metodo RED
+O Grafana e automaticamente provisionado via Infraestrutura como Codigo (`docker/grafana/provisioning/`):
 1. Acesse [http://localhost:3000](http://localhost:3000).
 2. Faca login com `admin` / `admin`.
-3. Navegue ate **Dashboards > Mailer Service Overview**.
-4. Visualize taxas de envio por segundo, latencia SMTP, taxa de erros e volumetria da fila.
+3. Navegue ate **Dashboards > Mailer Service — Overview**.
+4. **Paineis de Negocio:** Cards superiores alimentados via SQL no PostgreSQL.
+5. **Metodo RED (Prometheus):**
+   - **Rate (Vazao):** `sum(rate(mailer_emails_total{provider=~"$provider"}[1m])) * 60` (e-mails processados por minuto).
+   - **Errors (Taxa de Erro):** `sum(rate(mailer_emails_total{status="failed", provider=~"$provider"}[1m]))` (taxa de falhas por segundo).
+   - **Duration (Latencia Percentil):** `histogram_quantile(0.95, ...)` e `histogram_quantile(0.99, ...)` (latencia real da cauda longa).
+6. **Variaveis de Template:** Dropdowns dinamicos no topo do painel (`$provider` e `$status`) para filtragem instantanea de qualquer visualizacao.
+7. **Alertas Proativos Provisionados:**
+   - **Fila BullMQ Congestionada:** Dispara se houver mais de 50 jobs em estado `waiting` por mais de 5 minutos consecutivos.
+   - **Alta Taxa de Falhas SMTP:** Dispara se a taxa de falha de envio exceder 0.05 falhas por segundo.
 
 ---
 

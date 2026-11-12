@@ -33,4 +33,8 @@ Thumbs.db
 # Planejamento pessoal / Desenvolvimento local (não versionado)
 dev/
 
+# OpenSpec local (não versionado)
+openspec/
+.agents/
+
 

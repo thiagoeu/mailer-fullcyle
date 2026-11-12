@@ -14,6 +14,7 @@ import { metricsRegistry, httpRequestDurationHistogram } from './shared/metrics'
 import { swaggerOptions, swaggerUiOptions } from './config/swagger';
 import { SwaggerConstants } from './shared/constants/swagger.constants';
 import { HttpStatus } from './shared/enums/http-status.enum';
+import { globalErrorHandler } from './shared/errors/global-error-handler';
 import { z } from 'zod';
 
 export function buildApp(): FastifyInstance {
@@ -35,6 +36,9 @@ export function buildApp(): FastifyInstance {
   // Integracao do Zod com o Fastify para validacao e documentacao automatica
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+
+  // Manipulador global centralizado de erros
+  app.setErrorHandler(globalErrorHandler);
 
   // CORS liberado para integracao
   app.register(cors, {

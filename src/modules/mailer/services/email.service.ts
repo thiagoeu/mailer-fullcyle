@@ -2,11 +2,13 @@ import { AppDataSource } from '../../../database/data-source';
 import { EmailJob } from '../../../database/entities/EmailJob';
 import { EmailStatus } from '../../../shared/enums/email-status.enum';
 import { QueueConstants } from '../../../shared/constants/queue.constants';
+import { MessagesConstants } from '../../../shared/constants/messages.constants';
 import { SendEmailInput } from '../dtos/send-email.dto';
 import { addEmailToQueue } from '../queues/email.queue';
 import { emailsTotalCounter } from '../../../shared/metrics';
 import { mailConfig } from '../../../config/mail';
 import { EnqueueEmailResult } from '../interfaces/enqueue-email-result.interface';
+import { NotFoundError } from '../../../shared/errors/not-found-error';
 
 export class EmailService {
   private emailRepository = AppDataSource.getRepository(EmailJob);
@@ -57,11 +59,18 @@ export class EmailService {
   }
 
   /**
-   * Consulta o status atual de um e-mail pelo seu ID
+   * Consulta o status atual de um e-mail pelo seu ID.
+   * Lanca NotFoundError caso o registro nao exista no banco de dados.
    */
-  async getEmailById(id: string): Promise<EmailJob | null> {
-    return await this.emailRepository.findOne({
+  async getEmailById(id: string): Promise<EmailJob> {
+    const email = await this.emailRepository.findOne({
       where: { id },
     });
+
+    if (!email) {
+      throw new NotFoundError(`${MessagesConstants.EMAIL_NOT_FOUND} (ID: '${id}')`);
+    }
+
+    return email;
   }
 }

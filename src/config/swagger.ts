@@ -1,13 +1,14 @@
 import { FastifyDynamicSwaggerOptions } from '@fastify/swagger';
 import { FastifySwaggerUiOptions } from '@fastify/swagger-ui';
 import { jsonSchemaTransform } from 'fastify-type-provider-zod';
+import { SwaggerConstants } from '../shared/constants/swagger.constants';
 
 export const swaggerOptions: FastifyDynamicSwaggerOptions = {
   openapi: {
     info: {
-      title: 'Mailer Service — Full Cycle API',
-      description: 'API REST assincrona para enfileiramento e processamento resiliente de e-mails com BullMQ, TypeORM, Nodemailer e Observabilidade.',
-      version: '1.0.0',
+      title: SwaggerConstants.TITLE,
+      description: SwaggerConstants.DESCRIPTION,
+      version: SwaggerConstants.VERSION,
     },
     servers: [
       {
@@ -16,18 +17,17 @@ export const swaggerOptions: FastifyDynamicSwaggerOptions = {
       },
     ],
     tags: [
-      { name: 'Emails', description: 'Operacoes de enfileiramento e consulta de e-mails' },
-      { name: 'Monitoramento', description: 'Endpoints de saude e observabilidade' },
+      { name: SwaggerConstants.TAG_EMAILS, description: SwaggerConstants.TAG_EMAILS_DESCRIPTION },
+      { name: SwaggerConstants.TAG_MONITORING, description: SwaggerConstants.TAG_MONITORING_DESCRIPTION },
     ],
   },
   transform: jsonSchemaTransform,
 };
 
 export const swaggerUiOptions: FastifySwaggerUiOptions = {
-  routePrefix: '/docs',
+  routePrefix: SwaggerConstants.ROUTE_PREFIX,
   uiConfig: {
     docExpansion: 'list',
     deepLinking: true,
   },
 };
-

@@ -1,8 +1,10 @@
 import { Worker, Job } from 'bullmq';
 import { redisConnection } from '../../../config/redis';
-import { EMAIL_QUEUE_NAME, SendEmailJobData } from '../queues/email.queue';
+import { QueueConstants } from '../../../shared/constants/queue.constants';
+import { SendEmailJobData } from '../interfaces/send-email-job-data.interface';
 import { AppDataSource } from '../../../database/data-source';
-import { EmailJob, EmailStatus } from '../../../database/entities/EmailJob';
+import { EmailJob } from '../../../database/entities/EmailJob';
+import { EmailStatus } from '../../../shared/enums/email-status.enum';
 import { createMailTransporter, mailConfig } from '../../../config/mail';
 import { emailsTotalCounter, emailSendDurationHistogram } from '../../../shared/metrics';
 
@@ -10,7 +12,7 @@ const transporter = createMailTransporter();
 
 export function setupEmailWorker(): Worker<SendEmailJobData> {
   const worker = new Worker<SendEmailJobData>(
-    EMAIL_QUEUE_NAME,
+    QueueConstants.EMAIL_QUEUE_NAME,
     async (job: Job<SendEmailJobData>) => {
       const { emailId } = job.data;
       console.log(`[Worker] Processando Job #${job.id} (Email ID: ${emailId})...`);
@@ -75,7 +77,7 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
         emailRecord.lastError = error.message;
 
         // Se for a ultima tentativa permitida pelo BullMQ, marca como FAILED definitivamente
-        const maxAttempts = job.opts.attempts || 3;
+        const maxAttempts = job.opts.attempts || QueueConstants.DEFAULT_MAX_ATTEMPTS;
         if (emailRecord.attempts >= maxAttempts) {
           emailRecord.status = EmailStatus.FAILED;
         }
@@ -88,7 +90,7 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
     },
     {
       connection: redisConnection,
-      concurrency: 5, // Processa ate 5 e-mails em paralelo
+      concurrency: QueueConstants.WORKER_CONCURRENCY,
     }
   );
 

@@ -1,6 +1,8 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { EmailService } from '../services/email.service';
 import { SendEmailSchema } from '../dtos/send-email.dto';
+import { HttpStatus } from '../../../shared/enums/http-status.enum';
+import { MessagesConstants } from '../../../shared/constants/messages.constants';
 
 export class EmailController {
   private emailService: EmailService;
@@ -11,44 +13,47 @@ export class EmailController {
 
   /**
    * POST /emails/send
-   * Recebe a solicitação de disparo e enfileira
+   * Recebe a solicitacao de disparo, valida e enfileira
    */
   async send(request: FastifyRequest, reply: FastifyReply) {
-    // 1. Extração do idempotencyKey via header ou payload
-    const headerKey = (request.headers['idempotency-key'] || request.headers['x-idempotency-key']) as string | undefined;
+    // 1. Extracao do idempotencyKey via headers padronizados
+    const headerKey = (
+      request.headers[MessagesConstants.HEADER_IDEMPOTENCY_KEY] ||
+      request.headers[MessagesConstants.HEADER_X_IDEMPOTENCY_KEY]
+    ) as string | undefined;
 
     const payload = {
       ...(request.body as object),
       ...(headerKey ? { idempotencyKey: headerKey } : {}),
     };
 
-    // 2. Validação estrita com Zod
+    // 2. Validacao estrita com Zod
     const validationResult = SendEmailSchema.safeParse(payload);
 
     if (!validationResult.success) {
-      return reply.status(400).send({
-        statusCode: 400,
+      return reply.status(HttpStatus.BAD_REQUEST).send({
+        statusCode: HttpStatus.BAD_REQUEST,
         error: 'Bad Request',
-        message: 'Dados de envio inválidos.',
+        message: MessagesConstants.INVALID_PAYLOAD,
         details: validationResult.error.format(),
       });
     }
 
-    // 3. Execução do serviço com idempotência
+    // 3. Execucao do servico com idempotencia
     const { email, alreadyExists } = await this.emailService.enqueueEmail(validationResult.data);
 
     if (alreadyExists) {
-      return reply.status(200).send({
-        statusCode: 200,
-        message: 'E-mail previamente registrado (Idempotência acionada).',
+      return reply.status(HttpStatus.OK).send({
+        statusCode: HttpStatus.OK,
+        message: MessagesConstants.EMAIL_IDEMPOTENCY_DETECTED,
         email,
       });
     }
 
-    // Retorno padrão 202 Accepted para processamento assíncrono
-    return reply.status(202).send({
-      statusCode: 202,
-      message: 'E-mail enfileirado com sucesso para processamento em segundo plano.',
+    // Retorno padrao 202 Accepted para processamento assincrono
+    return reply.status(HttpStatus.ACCEPTED).send({
+      statusCode: HttpStatus.ACCEPTED,
+      message: MessagesConstants.EMAIL_ENQUEUED_SUCCESS,
       email,
     });
   }
@@ -63,17 +68,16 @@ export class EmailController {
     const email = await this.emailService.getEmailById(id);
 
     if (!email) {
-      return reply.status(404).send({
-        statusCode: 404,
+      return reply.status(HttpStatus.NOT_FOUND).send({
+        statusCode: HttpStatus.NOT_FOUND,
         error: 'Not Found',
-        message: `Nenhum e-mail encontrado com o ID '${id}'.`,
+        message: `${MessagesConstants.EMAIL_NOT_FOUND} (ID: '${id}').`,
       });
     }
 
-    return reply.status(200).send({
-      statusCode: 200,
+    return reply.status(HttpStatus.OK).send({
+      statusCode: HttpStatus.OK,
       email,
     });
   }
 }
-

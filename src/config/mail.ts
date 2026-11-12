@@ -1,13 +1,14 @@
 import 'dotenv/config';
 import nodemailer, { Transporter } from 'nodemailer';
+import { MailProvider } from '../shared/enums/mail-provider.enum';
 
 export interface MailConfig {
-  provider: 'gmail' | 'mailpit';
+  provider: MailProvider;
   fromDefault: string;
 }
 
 export const mailConfig: MailConfig = {
-  provider: (process.env.MAIL_PROVIDER as 'gmail' | 'mailpit') || 'gmail',
+  provider: (process.env.MAIL_PROVIDER as MailProvider) || MailProvider.GMAIL,
   fromDefault: process.env.EMAIL_FROM_DEFAULT || 'contatochecker@gmail.com',
 };
 
@@ -15,9 +16,7 @@ export const mailConfig: MailConfig = {
  * Cria o transporte SMTP configurado de acordo com o ambiente (Gmail ou Mailpit)
  */
 export function createMailTransporter(): Transporter {
-  if (mailConfig.provider === 'gmail') {
-    // Para Gmail com Senha de Aplicativo (App Password)
-    // Removemos eventuais espaços na senha por segurança
+  if (mailConfig.provider === MailProvider.GMAIL) {
     const pass = (process.env.GOOGLE_ACCOUNT_PASSWORD || '').replace(/\s+/g, '');
 
     return nodemailer.createTransport({
@@ -37,4 +36,3 @@ export function createMailTransporter(): Transporter {
     ignoreTLS: true,
   });
 }
-

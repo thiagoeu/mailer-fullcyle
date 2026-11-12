@@ -12,6 +12,8 @@ import { AppDataSource } from './database/data-source';
 import { emailQueue } from './modules/mailer/queues/email.queue';
 import { metricsRegistry, httpRequestDurationHistogram } from './shared/metrics';
 import { swaggerOptions, swaggerUiOptions } from './config/swagger';
+import { SwaggerConstants } from './shared/constants/swagger.constants';
+import { HttpStatus } from './shared/enums/http-status.enum';
 import { z } from 'zod';
 
 export function buildApp(): FastifyInstance {
@@ -53,7 +55,7 @@ export function buildApp(): FastifyInstance {
     const route = request.routeOptions?.url || request.url;
 
     // Ignora a propria rota /metrics e /docs para nao poluir o histograma
-    if (route === '/metrics' || route.startsWith('/docs')) {
+    if (route === '/metrics' || route.startsWith(SwaggerConstants.ROUTE_PREFIX)) {
       done();
       return;
     }
@@ -80,10 +82,10 @@ export function buildApp(): FastifyInstance {
     '/health',
     {
       schema: {
-        tags: ['Monitoramento'],
+        tags: [SwaggerConstants.TAG_MONITORING],
         summary: 'Verifica a saude da API e das conexoes com banco e fila',
         response: {
-          200: z.object({
+          [HttpStatus.OK]: z.object({
             status: z.enum(['UP', 'DOWN']),
             timestamp: z.string(),
             services: z.object({
@@ -91,7 +93,7 @@ export function buildApp(): FastifyInstance {
               redis: z.enum(['UP', 'DOWN']),
             }),
           }),
-          503: z.object({
+          [HttpStatus.SERVICE_UNAVAILABLE]: z.object({
             status: z.enum(['UP', 'DOWN']),
             timestamp: z.string(),
             services: z.object({
@@ -116,7 +118,7 @@ export function buildApp(): FastifyInstance {
 
       const healthy = isDbConnected && isRedisConnected;
 
-      return reply.status(healthy ? 200 : 503).send({
+      return reply.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE).send({
         status: healthy ? 'UP' : 'DOWN',
         timestamp: new Date().toISOString(),
         services: {

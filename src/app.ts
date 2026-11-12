@@ -21,23 +21,30 @@ export function buildApp(): FastifyInstance {
     },
   });
 
-  // CORS liberado para integração
+  // CORS liberado para integracao
   app.register(cors, {
     origin: '*',
   });
 
-  // Interceptador de métricas HTTP (mede a latência de cada requisição)
+  // Interceptador de metricas HTTP (mede a latencia de cada requisicao)
   app.addHook('onRequest', (request, _reply, done) => {
     (request as any).startTime = process.hrtime();
     done();
   });
 
   app.addHook('onResponse', (request, reply, done) => {
+    const route = request.routeOptions?.url || request.url;
+
+    // Ignora a propria rota /metrics para nao poluir o histograma com o scraping do Prometheus
+    if (route === '/metrics') {
+      done();
+      return;
+    }
+
     const startTime = (request as any).startTime;
     if (startTime) {
       const diff = process.hrtime(startTime);
       const durationInSeconds = diff[0] + diff[1] / 1e9;
-      const route = request.routeOptions?.url || request.url;
 
       httpRequestDurationHistogram.observe(
         {
@@ -76,13 +83,14 @@ export function buildApp(): FastifyInstance {
     });
   });
 
-  // Endpoint de Métricas do Prometheus
-  app.get('/metrics', async (_req, reply) => {
+  // Endpoint de Metricas do Prometheus
+  // logLevel: 'silent' impede que o terminal imprima logs a cada 5 segundos de scraping
+  app.get('/metrics', { logLevel: 'silent' }, async (_req, reply) => {
     reply.header('Content-Type', metricsRegistry.contentType);
     return reply.send(await metricsRegistry.metrics());
   });
 
-  // Registro do módulo de e-mails sob o prefixo /emails
+  // Registro do modulo de e-mails sob o prefixo /emails
   app.register(emailRoutes, { prefix: '/emails' });
 
   return app;

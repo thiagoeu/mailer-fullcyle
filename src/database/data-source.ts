@@ -12,11 +12,11 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'mailer_db',
   
   // Em desenvolvimento, o synchronize sincroniza automaticamente as tabelas
-  // No fluxo Full Cycle de produção, usamos migrations
+  // No fluxo Full Cycle de producao, usamos migrations
   synchronize: process.env.NODE_ENV === 'development',
-  logging: process.env.NODE_ENV === 'development',
+  // Loga apenas erros de SQL para nao poluir o terminal com queries internas de schema
+  logging: ['error'],
   entities: [EmailJob],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   subscribers: []
 });
-

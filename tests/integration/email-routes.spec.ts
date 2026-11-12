@@ -16,6 +16,7 @@ vi.mock('../../src/config/mail', () => ({
 
 const VALID_UUID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 const ANOTHER_VALID_UUID = 'b1ffcd88-8b1a-4fe7-aa5c-5aa8ac270b22';
+const AUTH_HEADERS = { 'x-api-key': 'default_secret_key' };
 
 const createMockEmailRecord = (overrides = {}) => ({
   id: VALID_UUID,
@@ -48,6 +49,51 @@ describe('Email Routes (Integration - In Memory via app.inject)', () => {
     vi.restoreAllMocks();
   });
 
+  describe('Autenticacao por API Key (x-api-key)', () => {
+    it('deve rejeitar POST /emails/send com 401 Unauthorized se o header x-api-key estiver ausente', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/emails/send',
+        payload: {
+          to: 'destinatario@exemplo.com',
+          subject: 'Sem chave',
+          body: '<p>Teste</p>',
+        },
+      });
+
+      expect(response.statusCode).toBe(HttpStatus.UNAUTHORIZED);
+      const json = JSON.parse(response.body);
+      expect(json.statusCode).toBe(HttpStatus.UNAUTHORIZED);
+      expect(json.message).toContain('Acesso nao autorizado');
+    });
+
+    it('deve rejeitar POST /emails/send com 401 Unauthorized se a chave for invalida', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/emails/send',
+        headers: {
+          'x-api-key': 'chave_incorreta_123',
+        },
+        payload: {
+          to: 'destinatario@exemplo.com',
+          subject: 'Chave errada',
+          body: '<p>Teste</p>',
+        },
+      });
+
+      expect(response.statusCode).toBe(HttpStatus.UNAUTHORIZED);
+    });
+
+    it('deve rejeitar GET /emails/:id com 401 Unauthorized se o header x-api-key estiver ausente', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/emails/${VALID_UUID}`,
+      });
+
+      expect(response.statusCode).toBe(HttpStatus.UNAUTHORIZED);
+    });
+  });
+
   describe('POST /emails/send', () => {
     it('deve aceitar e enfileirar um e-mail valido respondendo status 202 Accepted', async () => {
       const mockEmail = createMockEmailRecord();
@@ -60,6 +106,7 @@ describe('Email Routes (Integration - In Memory via app.inject)', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/emails/send',
+        headers: AUTH_HEADERS,
         payload: {
           to: 'destinatario@exemplo.com',
           subject: 'Assunto do Teste',
@@ -89,6 +136,7 @@ describe('Email Routes (Integration - In Memory via app.inject)', () => {
         method: 'POST',
         url: '/emails/send',
         headers: {
+          ...AUTH_HEADERS,
           'x-idempotency-key': 'chave-idempotente-999',
         },
         payload: {
@@ -109,6 +157,7 @@ describe('Email Routes (Integration - In Memory via app.inject)', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/emails/send',
+        headers: AUTH_HEADERS,
         payload: {
           to: 'email-com-formato-invalido',
           subject: 'Sem corpo nem template',
@@ -123,7 +172,7 @@ describe('Email Routes (Integration - In Memory via app.inject)', () => {
   });
 
   describe('GET /emails/:id', () => {
-    it('deve retornar 200 OK com os dados do e-mail quando o ID existir', async () => {
+    it('deve retornar 200 OK com os dados do e-mail quando o ID existir e chave for valida', async () => {
       const mockEmail = createMockEmailRecord({
         id: VALID_UUID,
         status: EmailStatus.SENT,
@@ -134,6 +183,7 @@ describe('Email Routes (Integration - In Memory via app.inject)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/emails/${VALID_UUID}`,
+        headers: AUTH_HEADERS,
       });
 
       expect(response.statusCode).toBe(HttpStatus.OK);
@@ -150,6 +200,7 @@ describe('Email Routes (Integration - In Memory via app.inject)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/emails/${VALID_UUID}`,
+        headers: AUTH_HEADERS,
       });
 
       expect(response.statusCode).toBe(HttpStatus.NOT_FOUND);

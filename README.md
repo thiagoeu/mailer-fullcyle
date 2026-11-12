@@ -20,13 +20,15 @@ Servico assincrono de alto desempenho para processamento e disparo de e-mails em
 
 ## Indice
 
-- [Visao Geral](#visao-geral)
+- [Visao Geral e Motivacao](#visao-geral-e-motivacao)
+- [Galeria Visual do Ecossistema](#galeria-visual-do-ecossistema)
+- [Autenticacao e Consumo por Servicos Clientes](#autenticacao-e-consumo-por-servicos-clientes)
 - [Principais Funcionalidades](#principais-funcionalidades)
+- [Catalogo de Templates Transacionais](#catalogo-de-templates-transacionais)
 - [Arquitetura do Sistema](#arquitetura-do-sistema)
 - [Stack Tecnologica](#stack-tecnologica)
 - [Estrutura do Projeto](#estrutura-do-projeto)
 - [Design de Software e Boas Praticas](#design-de-software-e-boas-praticas)
-- [Templates Dinamicos com Cache](#templates-dinamicos-com-cache)
 - [Estrategia de Testes Automatizados](#estrategia-de-testes-automatizados)
 - [Pipelines de CI/CD e Conteinerizacao](#pipelines-de-cicd-e-conteinerizacao)
 - [Infraestrutura e Dependencias](#infraestrutura-e-dependencias)
@@ -38,18 +40,82 @@ Servico assincrono de alto desempenho para processamento e disparo de e-mails em
 
 ---
 
-## Visao Geral
+## Visao Geral e Motivacao
 
-Em aplicacoes corporativas, o disparo sincrono de e-mails e um anti-padrao grave que causa travamentos de requisicao, lentidao perceptual para o usuario e falhas criticas quando servidores SMTP externos (Gmail, AWS SES, Resend) sofrem instabilidades ou aplicam limites de taxa (*rate limits*).
+### O Problema do Mundo Real
+Em sistemas corporativos (e-commerces, plataformas financeiras, redes sociais e SaaS), **disparar e-mails de forma sincrona na mesma requisicao HTTP do usuario e um anti-padrao grave**:
+- **Lentidao Extrema:** O protocolo SMTP exige handshake TCP, negociacao TLS e troca de comandos de rede, consumindo entre **1 a 5 segundos** por disparo.
+- **Esgotamento de Recursos:** Se 100 clientes tentam concluir um pedido ou cadastro ao mesmo tempo, as conexoes do servidor web ficam presas aguardando o servidor SMTP responder, esgotando o pool de conexoes e derrubando o site.
+- **Vulnerabilidade a Falhas Externas:** Caso o provedor SMTP (Gmail, SendGrid, Amazon SES) passe por instabilidade temporaria, a requisicao do usuario quebra com erro 500, gerando perda imediata de vendas ou cadastros.
 
-O **Mailer Service** resolve esses problemas atraves de uma arquitetura orientada a eventos e filas assincronas:
-1. **Desacoplamento Imediato:** O endpoint HTTP recebe a solicitacao, valida os contratos via Zod e enfileira a mensagem no Redis em milissegundos, respondendo `202 Accepted`.
-2. **Processamento em Background:** Workers dedicados consom a fila do BullMQ de forma concorrente e resiliente.
-3. **Tolerancia a Falhas:** Erros transitorios de envio disparam retentativas automaticas com backoff exponencial.
-4. **Garantia de Idempotencia:** Chaves unicas de transacao impedem envios duplicados, mesmo sob retransmissoes acidentais de rede.
-5. **Templates Compilados:** Motor Handlebars com cache em memoria RAM para renderizacao de layouts HTML seguros e de alto desempenho.
-6. **Observabilidade Nativa:** Metricas operacionais expostas para Prometheus e visualizadas em painel customizado no Grafana.
-7. **Engenharia de Testes e CI/CD:** Suite de testes com Vitest (unitarios e integracao in-memory) e automacao de validacao a cada commit.
+### A Solucao do Mailer Service
+O **Mailer Service** desacopla completamente o recebimento da solicitacao do processamento e entrega:
+1. **Resposta Imediata (< 20ms):** A aplicacao cliente envia um `POST /emails/send`. O Mailer valida os dados via Zod, persiste o registro inicial no PostgreSQL e despacha para a fila do Redis (`BullMQ`), retornando `202 Accepted` de imediato.
+2. **Entrega Assincrona em Background:** Workers dedicados consom a fila de forma concorrente, compilam os templates Handlebars com cache em memoria e realizam a entrega SMTP.
+3. **Resiliencia e Retentativa:** Se o provedor de e-mail oscilar, o job nao e perdido: e retentado automaticamente com politicas de backoff exponencial.
+4. **Protecao de Idempotencia:** Chaves unicas de transacao no banco impedem que mensagens duplicadas sejam disparadas em caso de instabilidade na conexao do cliente.
+
+---
+
+## Galeria Visual do Ecossistema
+
+### 1. Documentacao Interativa da API (Swagger UI & Autenticacao)
+Interface completa OpenAPI v3 com schemas tipados para todas as rotas (Emails e Monitoramento) e autorizacao via API Key:
+
+![Swagger UI](docs/screenshots/swagger.png)
+
+### 2. Painel de Observabilidade Senior (Grafana & Metodo RED)
+Monitoramento em tempo real integrando PostgreSQL (estado persistido absoluto) e Prometheus (vazao, latencia e erros via Metodo RED):
+
+![Grafana Dashboard](docs/screenshots/grafana.png)
+
+### 3. Servidor SMTP Mock Local (Mailpit)
+Ambiente de testes local que intercepta os disparos sem enviar e-mails reais para a internet ou consumir cotas do Gmail:
+
+![Mailpit Web UI](docs/screenshots/mailpit.png)
+
+---
+
+## Autenticacao e Consumo por Servicos Clientes
+
+O Mailer Service e desenhado para ser consumido de forma segura por multiplas aplicacoes clientes (backends em Node.js, Python, Java, Go, PHP ou microsservicos internos):
+
+### Header de Autenticacao (`x-api-key`)
+Todas as chamadas para o modulo `/emails` devem conter o header `x-api-key`:
+
+```http
+POST /emails/send HTTP/1.1
+Host: localhost:3333
+x-api-key: default_secret_key
+Content-Type: application/json
+
+{
+  "to": "usuario@exemplo.com",
+  "subject": "Recuperacao de Senha",
+  "template": "password-reset",
+  "templateVariables": {
+    "name": "Carlos",
+    "code": "849201",
+    "expiresInMinutes": 15
+  }
+}
+```
+
+- **Requisicoes sem o header ou com chave incorreta:** Rejeitadas imediatamente com `HTTP 401 Unauthorized`.
+- **Rotas Publicas:** Endpoints de monitoramento (`/health`, `/metrics` e `/docs`) permanecem abertos para coletores do Prometheus e balanceadores de carga.
+
+---
+
+## Catalogo de Templates Transacionais
+
+O servico inclui uma biblioteca de layouts Handlebars com inline CSS compativel com os principais clientes de e-mail do mercado:
+
+| Template | Finalidade | Variaveis Suportadas |
+| :--- | :--- | :--- |
+| **`welcome`** | Boas-vindas e ativacao de conta | `name`, `actionUrl` |
+| **`password-reset`** | Codigo e link seguro de redefinicao de senha | `name`, `code`, `expiresInMinutes`, `resetUrl` |
+| **`order-confirmation`** | Resumo de compra e previsao de entrega | `customerName`, `orderNumber`, `orderDate`, `totalAmount`, `shippingAddress`, `estimatedDelivery` |
+| **`security-alert`** | Alerta preventivo de novo login suspeito | `userName`, `timestamp`, `device`, `ipAddress`, `location`, `secureAccountUrl` |
 
 ---
 
@@ -316,7 +382,7 @@ A aplicacao adota a **Piramide de Testes**, combinando suites unitarias ultrarra
   - Execucao completa em milissegundos sem depender de containers ou conexoes de rede.
 - **Testes de Integracao HTTP (`tests/integration/`):**
   - Execucao via Fastify `app.inject()`, simulando pacotes HTTP diretamente na pilha de rotas sem abrir portas TCP no sistema operacional.
-  - Cobertura completa de `/health`, `/metrics`, `POST /emails/send` e `GET /emails/:id`.
+  - Cobertura completa de `/health`, `/metrics`, `POST /emails/send`, `GET /emails/:id`, e gerenciamento de chaves `/api-keys` (criacao, listagem, revogacao e seguranca de Master Key).
   - Mock de transporte SMTP que garante que **zero e-mails reais sejam disparados para a internet**.
 
 ### Como Executar os Testes
@@ -405,6 +471,10 @@ REDIS_PORT=6379
 # Provedor de E-mail: "gmail" ou "mailpit"
 MAIL_PROVIDER=mailpit
 
+# Seguranca e Autenticacao
+ADMIN_MASTER_KEY=master_admin_secret
+API_SECRET_KEY=default_secret_key
+
 # Configuracao Gmail (necessario apenas se MAIL_PROVIDER=gmail)
 GOOGLE_ACCOUNT_USER=seu-email@gmail.com
 GOOGLE_ACCOUNT_PASSWORD=sua-senha-de-app-16-digitos
@@ -448,61 +518,100 @@ A documentacao interativa e gerada automaticamente a partir dos schemas Zod e es
 
 ### Endpoints Principais
 
-#### 1. Enfileirar Disparo de E-mail
+#### 1. Gerenciamento Dinamico de Chaves de API (Master Key)
+As rotas de administracao permitem gerar e gerenciar credenciais criptograficas individuais para microsservicos clientes, protegidas pelo header `x-admin-key`. O segredo em texto puro (`mls_live_...`) e exibido uma unica vez na criacao; o banco armazena exclusivamente o hash irreversivel SHA-256.
+
+##### A. Criar Nova API Key
+- **Metodo:** `POST`
+- **Rota:** `/api-keys`
+- **Headers:** `x-admin-key: master_admin_secret`
+- **Body:**
+```json
+{
+  "name": "Microsservico de Checkout"
+}
+```
+- **Resposta (`200 OK`):**
+```json
+{
+  "statusCode": 200,
+  "message": "Chave de API gerada com sucesso. Guarde o segredo \"apiKey\", pois ele nao podera ser recuperado novamente.",
+  "data": {
+    "id": "c28a9b24-4f01-4be3-b9dc-461320ef4147",
+    "name": "Microsservico de Checkout",
+    "keyPrefix": "mls_live_7a9f...",
+    "apiKey": "mls_live_7a9f4c81d2e3f4a5b6c7d8e90123456789abcdef01234567",
+    "isActive": true,
+    "createdAt": "2026-11-12T16:00:00.000Z"
+  }
+}
+```
+
+##### B. Listar Chaves Cadastradas
+- **Metodo:** `GET`
+- **Rota:** `/api-keys`
+- **Headers:** `x-admin-key: master_admin_secret`
+- **Resposta (`200 OK`):** Lista chaves existentes exibindo apenas prefixo mascarado (`keyPrefix`), status ativo e data de ultimo uso, sem revelar o hash nem o segredo original.
+
+##### C. Revogar Chave de API
+- **Metodo:** `PATCH`
+- **Rota:** `/api-keys/:id/revoke`
+- **Headers:** `x-admin-key: master_admin_secret`
+- **Resposta (`200 OK`):** Atualiza `isActive = false`, invalidando imediatamente o acesso do cliente a `/emails/send`.
+
+---
+
+#### 2. Enfileirar Disparo de E-mail
 - **Metodo:** `POST`
 - **Rota:** `/emails/send`
-- **Headers Opcionais:**
-  - `x-idempotency-key: string` (UUID ou identificador unico da solicitacao)
+- **Headers:**
+  - `x-api-key: string` (Obrigatorio: Chave de autenticacao de servico)
+  - `x-idempotency-key: string` (Opcional: UUID ou chave unica para evitar duplicidade)
 - **Body com Template:**
 ```json
 {
   "to": "destinatario@exemplo.com",
-  "subject": "Bem-vindo ao Sistema!",
-  "template": "welcome",
+  "subject": "Recuperacao de Senha",
+  "template": "password-reset",
   "templateVariables": {
-    "name": "Thiago",
-    "actionUrl": "https://meusite.com/ativar"
+    "name": "Carlos",
+    "code": "849201",
+    "expiresInMinutes": 15
   },
   "metadata": {
-    "origin": "signup_flow"
+    "origin": "auth_service"
   }
-}
-```
-- **Body com Conteudo Direto (Alternativa):**
-```json
-{
-  "to": "destinatario@exemplo.com",
-  "subject": "Mensagem Direta",
-  "body": "<p>Ola, sua solicitacao foi processada com sucesso.</p>"
 }
 ```
 - **Respostas:**
   - `202 Accepted`: Job recebido e inserido na fila de processamento assincrono.
   - `200 OK`: Requisicao idempotente (retorna o job ja existente sem duplicar).
   - `400 Bad Request`: Payload invalido ou campos obrigatorios ausentes.
+  - `401 Unauthorized`: Chave de API ausente ou invalida.
 
-#### 2. Consultar Status do Envio
+#### 3. Consultar Status do Envio
 - **Metodo:** `GET`
 - **Rota:** `/emails/:id`
+- **Headers:**
+  - `x-api-key: string` (Obrigatorio: Chave de autenticacao de servico)
 - **Parametro de URL:** `id` (UUID gerado no momento do enfileiramento)
 - **Respostas:**
   - `200 OK`: Dados completos do envio (status `PENDING`, `PROCESSING`, `SENT` ou `FAILED`, total de tentativas e datas).
+  - `401 Unauthorized`: Chave de API ausente ou invalida.
   - `404 Not Found`: E-mail nao localizado na base de dados.
 
-#### 3. Healthcheck da Aplicacao
+#### 4. Healthcheck da Aplicacao
 - **Metodo:** `GET`
-- **Rota:** `/health`
+- **Rota:** `/health` (Publico)
+- **Respostas:**
+  - `200 OK`: Servicos operacionais (`database: UP`, `redis: UP`).
+  - `503 Service Unavailable`: Falha em um dos servicos dependentes.
+
+#### 5. Metricas Operacionais para Prometheus
+- **Metodo:** `GET`
+- **Rota:** `/metrics` (Publico)
 - **Resposta:**
-```json
-{
-  "status": "UP",
-  "timestamp": "2026-11-12T15:00:00.000Z",
-  "services": {
-    "database": "UP",
-    "redis": "UP"
-  }
-}
-```
+  - `200 OK`: Formato OpenMetrics/Prometheus para coleta periodica de telemetria pelo agente Prometheus.
 
 ---
 

@@ -5,7 +5,7 @@ import { buildApp } from '../app';
 import { emailQueue } from '../modules/mailer/queues/email.queue';
 
 async function testApi() {
-  console.log('🧪 Iniciando testes de integração da API Fastify...\n');
+  console.log('[INFO] Iniciando testes de integracao da API Fastify...\n');
 
   // Inicializa banco e worker
   await AppDataSource.initialize();
@@ -24,8 +24,8 @@ async function testApi() {
   console.log('Status:', healthRes.statusCode);
   console.log('Resposta:', healthRes.json());
 
-  // 2. Teste de Validação Zod (payload com erro proposital)
-  console.log('\n--- 2. Testando POST /emails/send com payload inválido ---');
+  // 2. Teste de Validacao Zod (payload com erro proposital)
+  console.log('\n--- 2. Testando POST /emails/send com payload invalido ---');
   const invalidRes = await app.inject({
     method: 'POST',
     url: '/emails/send',
@@ -38,8 +38,8 @@ async function testApi() {
   console.log('Status esperado (400):', invalidRes.statusCode);
   console.log('Detalhes dos erros Zod:', invalidRes.json());
 
-  // 3. Teste de Envio Válido com Idempotência
-  console.log('\n--- 3. Testando POST /emails/send válido com IdempotencyKey ---');
+  // 3. Teste de Envio Valido com Idempotencia
+  console.log('\n--- 3. Testando POST /emails/send valido com IdempotencyKey ---');
   const idempotencyKey = `teste-idemp-${Date.now()}`;
 
   const sendRes = await app.inject({
@@ -50,8 +50,8 @@ async function testApi() {
     },
     payload: {
       to: targetEmail,
-      subject: '🚀 Disparo Real via API Fastify + BullMQ + TypeORM',
-      body: '<h3>Olá!</h3><p>Este e-mail foi recebido pela <strong>API Fastify</strong>, validado por Zod e processado via fila assíncrona.</p>',
+      subject: 'Disparo Real via API Fastify + BullMQ + TypeORM',
+      body: '<h3>Ola!</h3><p>Este e-mail foi recebido pela <strong>API Fastify</strong>, validado por Zod e processado via fila assincrona.</p>',
     },
   });
   console.log('Status esperado (202):', sendRes.statusCode);
@@ -59,8 +59,8 @@ async function testApi() {
   console.log('Resposta:', sendData);
   const createdEmailId = sendData.email.id;
 
-  // 4. Teste de Idempotência (mesma requisição com a mesma chave)
-  console.log('\n--- 4. Testando Idempotência: reenvio com a MESMA chave ---');
+  // 4. Teste de Idempotencia (mesma requisicao com a mesma chave)
+  console.log('\n--- 4. Testando Idempotencia: reenvio com a MESMA chave ---');
   const duplicateRes = await app.inject({
     method: 'POST',
     url: '/emails/send',
@@ -69,15 +69,15 @@ async function testApi() {
     },
     payload: {
       to: targetEmail,
-      subject: 'Assunto diferente (deve ser ignorado pela idempotência)',
+      subject: 'Assunto diferente (deve ser ignorado pela idempotencia)',
       body: 'Corpo diferente',
     },
   });
-  console.log('Status esperado (200 - Idempotência acionada):', duplicateRes.statusCode);
+  console.log('Status esperado (200 - Idempotencia acionada):', duplicateRes.statusCode);
   console.log('Resposta:', duplicateRes.json());
 
-  // 5. Aguarda 6 segundos para o Worker processar o disparo via Gmail
-  console.log('\n⏳ Aguardando o Worker processar o disparo via Gmail SMTP...');
+  // 5. Aguarda processamento
+  console.log('\n[INFO] Aguardando o Worker processar o disparo via Gmail SMTP...');
   await new Promise((resolve) => setTimeout(resolve, 6000));
 
   // 6. Teste de Consulta GET /emails/:id
@@ -94,12 +94,11 @@ async function testApi() {
   await worker.close();
   await emailQueue.close();
   await AppDataSource.destroy();
-  console.log('\n✅ Todos os testes da API concluídos com sucesso!');
+  console.log('\n[INFO] Todos os testes da API concluidos com sucesso.');
   process.exit(0);
 }
 
 testApi().catch((err) => {
-  console.error('❌ Falha nos testes da API:', err);
+  console.error('[ERROR] Falha nos testes da API:', err);
   process.exit(1);
 });
-

@@ -8,43 +8,43 @@ async function bootstrap() {
   const port = Number(process.env.PORT) || 3333;
   const host = '0.0.0.0';
 
-  console.log('🚀 Inicializando o Mailer Service...');
+  console.log('[INFO] Inicializando o Mailer Service...');
 
-  // 1. Conexão com o PostgreSQL
+  // 1. Conexao com o PostgreSQL
   await AppDataSource.initialize();
-  console.log('📦 Conexão com PostgreSQL estabelecida com sucesso.');
+  console.log('[INFO] Conexao com PostgreSQL estabelecida com sucesso.');
 
-  // 2. Inicialização do Worker em segundo plano
+  // 2. Inicializacao do Worker em segundo plano
   const worker = setupEmailWorker();
-  console.log('⚙️  BullMQ Worker ativo e processando filas.');
+  console.log('[INFO] BullMQ Worker ativo e processando filas.');
 
-  // 3. Inicialização do Servidor Fastify
+  // 3. Inicializacao do Servidor Fastify
   const app = buildApp();
 
   await app.listen({ port, host });
-  console.log(`🌐 API HTTP rodando em http://localhost:${port}`);
-  console.log(`🩺 Healthcheck disponível em http://localhost:${port}/health`);
+  console.log(`[INFO] API HTTP rodando em http://localhost:${port}`);
+  console.log(`[INFO] Healthcheck disponivel em http://localhost:${port}/health`);
 
   // 4. Graceful Shutdown (Encerramento gracioso em caso de parada do container/processo)
   const gracefulShutdown = async (signal: string) => {
-    console.log(`\n🛑 Sinal ${signal} recebido. Encerrando serviços com segurança...`);
+    console.log(`\n[INFO] Sinal ${signal} recebido. Encerrando servicos com seguranca...`);
     try {
       await app.close();
-      console.log('🔌 Servidor HTTP encerrado.');
+      console.log('[INFO] Servidor HTTP encerrado.');
 
       await worker.close();
-      console.log('⚙️  Worker encerrado.');
+      console.log('[INFO] Worker encerrado.');
 
       await emailQueue.close();
-      console.log('📥 Conexão com fila encerrada.');
+      console.log('[INFO] Conexao com fila encerrada.');
 
       await AppDataSource.destroy();
-      console.log('📦 Conexão com PostgreSQL encerrada.');
+      console.log('[INFO] Conexao com PostgreSQL encerrada.');
 
-      console.log('👋 Processo finalizado com sucesso.');
+      console.log('[INFO] Processo finalizado com sucesso.');
       process.exit(0);
     } catch (error) {
-      console.error('❌ Erro durante o encerramento gracioso:', error);
+      console.error('[ERROR] Erro durante o encerramento gracioso:', error);
       process.exit(1);
     }
   };
@@ -54,7 +54,6 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  console.error('❌ Falha crítica ao inicializar a aplicação:', error);
+  console.error('[FATAL] Falha critica ao inicializar a aplicacao:', error);
   process.exit(1);
 });
-

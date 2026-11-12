@@ -5,7 +5,7 @@ import { buildApp } from '../app';
 import { emailQueue } from '../modules/mailer/queues/email.queue';
 
 async function testMetrics() {
-  console.log('📊 Iniciando teste das Métricas e Observabilidade...\n');
+  console.log('[INFO] Iniciando teste das Metricas e Observabilidade...\n');
 
   await AppDataSource.initialize();
   const worker = setupEmailWorker();
@@ -14,24 +14,24 @@ async function testMetrics() {
 
   const targetEmail = process.env.GOOGLE_ACCOUNT_USER || 'contatochecker@gmail.com';
 
-  // 1. Simula requisição para gerar métricas de API e fila
-  console.log('1. Disparando envio via API para gerar métricas...');
+  // 1. Simula requisicao para gerar metricas de API e fila
+  console.log('[INFO] 1. Disparando envio via API para gerar metricas...');
   await app.inject({
     method: 'POST',
     url: '/emails/send',
     payload: {
       to: targetEmail,
-      subject: '📈 Teste de Observabilidade Prometheus',
-      body: '<p>Este e-mail está alimentando o Prometheus e o Grafana com métricas em tempo real.</p>',
+      subject: 'Teste de Observabilidade Prometheus',
+      body: '<p>Este e-mail esta alimentando o Prometheus e o Grafana com metricas em tempo real.</p>',
     },
   });
 
-  // Aguarda 6s para o worker processar e alimentar as métricas do SMTP
-  console.log('⏳ Aguardando processamento do Worker para registrar métricas de envio SMTP...');
+  // Aguarda processamento do worker para alimentar metricas do SMTP
+  console.log('[INFO] Aguardando processamento do Worker para registrar metricas de envio SMTP...');
   await new Promise((resolve) => setTimeout(resolve, 6000));
 
   // 2. Consulta o endpoint /metrics do Prometheus
-  console.log('\n2. Consultando o endpoint GET /metrics...');
+  console.log('\n[INFO] 2. Consultando o endpoint GET /metrics...');
   const metricsRes = await app.inject({
     method: 'GET',
     url: '/metrics',
@@ -40,8 +40,8 @@ async function testMetrics() {
   console.log('Status HTTP:', metricsRes.statusCode);
   const metricsText = metricsRes.body;
 
-  // Filtra as métricas do nosso mailer no meio das métricas padrão do Node
-  console.log('\n--- Amostra das Métricas Exportadas do Mailer Service ---');
+  // Filtra as metricas do nosso mailer no meio das metricas padrao do Node
+  console.log('\n--- Amostra das Metricas Exportadas do Mailer Service ---');
   const mailerLines = metricsText
     .split('\n')
     .filter(
@@ -58,12 +58,11 @@ async function testMetrics() {
   await emailQueue.close();
   await AppDataSource.destroy();
 
-  console.log('\n✅ Métricas validadas com sucesso!');
+  console.log('\n[INFO] Metricas validadas com sucesso.');
   process.exit(0);
 }
 
 testMetrics().catch((err) => {
-  console.error('❌ Erro no teste de métricas:', err);
+  console.error('[ERROR] Erro no teste de metricas:', err);
   process.exit(1);
 });
-

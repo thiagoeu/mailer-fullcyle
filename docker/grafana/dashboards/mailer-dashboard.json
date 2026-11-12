@@ -13,7 +13,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "id": 1,
-      "title": "📊 Visão Geral de Processamento",
+      "title": "Visao Geral de Processamento",
       "type": "row"
     },
     {
@@ -55,7 +55,7 @@
           "refId": "A"
         }
       ],
-      "title": "✅ Total E-mails Enviados",
+      "title": "Total Emails Enviados",
       "type": "stat"
     },
     {
@@ -97,7 +97,7 @@
           "refId": "A"
         }
       ],
-      "title": "📥 Total E-mails Enfileirados",
+      "title": "Total Emails Enfileirados",
       "type": "stat"
     },
     {
@@ -140,21 +140,21 @@
           "refId": "A"
         }
       ],
-      "title": "❌ Total Falhas Definitivas",
+      "title": "Total Falhas Definitivas",
       "type": "stat"
     },
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
       "id": 5,
-      "title": "⚡ Filas & Performance",
+      "title": "Filas e Performance",
       "type": "row"
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
       "id": 6,
-      "title": "📈 Estado da Fila BullMQ (Redis)",
+      "title": "Estado da Fila BullMQ (Redis)",
       "type": "timeseries",
       "targets": [
         {
@@ -170,14 +170,14 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
       "id": 7,
-      "title": "⏱️ Latência Média de Envio SMTP (Gmail/Mailpit)",
+      "title": "Latencia Media de Envio SMTP (Gmail/Mailpit)",
       "type": "timeseries",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "Prometheus" },
           "editorMode": "code",
           "expr": "rate(mailer_send_duration_seconds_sum[1m]) / rate(mailer_send_duration_seconds_count[1m])",
-          "legendFormat": "{{provider}} (média s)",
+          "legendFormat": "{{provider}} (media s)",
           "refId": "A"
         }
       ]
@@ -197,4 +197,3 @@
   "uid": "mailer-service-overview",
   "version": 1
 }
-

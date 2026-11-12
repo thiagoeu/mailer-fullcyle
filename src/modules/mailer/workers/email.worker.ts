@@ -13,20 +13,20 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
     EMAIL_QUEUE_NAME,
     async (job: Job<SendEmailJobData>) => {
       const { emailId } = job.data;
-      console.log(`[Worker] 🔄 Processando Job #${job.id} (Email ID: ${emailId})...`);
+      console.log(`[Worker] Processando Job #${job.id} (Email ID: ${emailId})...`);
 
       const emailRepository = AppDataSource.getRepository(EmailJob);
 
       // 1. Busca o registro no PostgreSQL
       const emailRecord = await emailRepository.findOne({ where: { id: emailId } });
       if (!emailRecord) {
-        console.error(`[Worker] ❌ Registro de e-mail ${emailId} não encontrado no banco de dados!`);
-        throw new Error(`Email com ID ${emailId} não existe.`);
+        console.error(`[Worker] [ERROR] Registro de e-mail ${emailId} nao encontrado no banco de dados.`);
+        throw new Error(`Email com ID ${emailId} nao existe.`);
       }
 
-      // Se já foi enviado anteriormente, não reenvia (idempotência defensiva)
+      // Se ja foi enviado anteriormente, nao reenvia (idempotencia defensiva)
       if (emailRecord.status === EmailStatus.SENT) {
-        console.log(`[Worker] ⚠️ E-mail ${emailId} já se encontra marcado como SENT. Ignorando.`);
+        console.log(`[Worker] [WARN] E-mail ${emailId} ja se encontra marcado como SENT. Ignorando.`);
         return;
       }
 
@@ -35,7 +35,7 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
       emailRecord.attempts += 1;
       await emailRepository.save(emailRecord);
 
-      // Inicia timer para registrar a latência do envio nas métricas
+      // Inicia timer para registrar a latencia do envio nas metricas
       const stopTimer = emailSendDurationHistogram.startTimer({
         provider: mailConfig.provider,
       });
@@ -52,7 +52,7 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
         // Para o timer marcando sucesso
         stopTimer({ success: 'true' });
 
-        // Incrementa métrica de e-mails enviados com sucesso
+        // Incrementa metrica de e-mails enviados com sucesso
         emailsTotalCounter.inc({ status: 'sent', provider: mailConfig.provider });
 
         // 4. Marca como SENT e salva o ID retornado pelo SMTP
@@ -62,19 +62,19 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
         emailRecord.lastError = undefined;
         await emailRepository.save(emailRecord);
 
-        console.log(`[Worker] ✅ E-mail ${emailId} enviado com sucesso! Message-ID: ${info.messageId}`);
+        console.log(`[Worker] [INFO] E-mail ${emailId} enviado com sucesso. Message-ID: ${info.messageId}`);
       } catch (error: any) {
         // Para o timer marcando falha
         stopTimer({ success: 'false' });
 
-        // Incrementa métrica de falha
+        // Incrementa metrica de falha
         emailsTotalCounter.inc({ status: 'failed', provider: mailConfig.provider });
 
-        console.error(`[Worker] ❌ Falha no envio do e-mail ${emailId}:`, error.message);
+        console.error(`[Worker] [ERROR] Falha no envio do e-mail ${emailId}:`, error.message);
 
         emailRecord.lastError = error.message;
 
-        // Se for a última tentativa permitida pelo BullMQ, marca como FAILED definitivamente
+        // Se for a ultima tentativa permitida pelo BullMQ, marca como FAILED definitivamente
         const maxAttempts = job.opts.attempts || 3;
         if (emailRecord.attempts >= maxAttempts) {
           emailRecord.status = EmailStatus.FAILED;
@@ -82,22 +82,22 @@ export function setupEmailWorker(): Worker<SendEmailJobData> {
 
         await emailRepository.save(emailRecord);
 
-        // Relança o erro para o BullMQ reagendar a retentativa com Backoff
+        // Relanca o erro para o BullMQ reagendar a retentativa com Backoff
         throw error;
       }
     },
     {
       connection: redisConnection,
-      concurrency: 5, // Processa até 5 e-mails em paralelo
+      concurrency: 5, // Processa ate 5 e-mails em paralelo
     }
   );
 
   worker.on('completed', (job) => {
-    console.log(`[Worker Event] 🎉 Job #${job.id} finalizado com sucesso!`);
+    console.log(`[Worker Event] [INFO] Job #${job.id} finalizado com sucesso.`);
   });
 
   worker.on('failed', (job, err) => {
-    console.log(`[Worker Event] ⚠️ Job #${job?.id} falhou. Tentativa ${job?.attemptsMade}/${job?.opts.attempts}. Erro: ${err.message}`);
+    console.log(`[Worker Event] [WARN] Job #${job?.id} falhou. Tentativa ${job?.attemptsMade}/${job?.opts.attempts}. Erro: ${err.message}`);
   });
 
   return worker;

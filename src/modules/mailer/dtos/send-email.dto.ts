@@ -33,7 +33,7 @@ export const SendEmailSchema = z
       .min(1, 'O nome do template nao pode estar vazio.')
       .default('welcome')
       .optional()
-      .describe('Nome do template Handlebars em disco (ex: welcome)'),
+      .describe('Nome do template Handlebars: "welcome", "password-reset", "order-confirmation" ou "security-alert"'),
     templateVariables: z
       .record(z.any())
       .default({
